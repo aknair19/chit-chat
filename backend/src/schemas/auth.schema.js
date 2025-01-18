@@ -11,3 +11,8 @@ export const signupSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one digit"),
   profilePic: z.string().optional(),
 });
+
+export const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  password: z.string(),
+});

@@ -1,6 +1,7 @@
+import cloudinary from "../lib/cloudinary.js";
 import { generateToken } from "../lib/utils.js";
 import { User } from "../models/user.model.js";
-import { signupSchema } from "../schemas/auth.schema.js";
+import { loginSchema, signupSchema } from "../schemas/auth.schema.js";
 import bcrypt from "bcryptjs";
 import z from "zod";
 export const signup = async (req, res) => {
@@ -14,7 +15,7 @@ export const signup = async (req, res) => {
     if (user) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: "User with email already exists",
       });
     }
     //hash password
@@ -35,11 +36,13 @@ export const signup = async (req, res) => {
       res.status(201).json({
         success: true,
         message: "User Created Successfully",
-        _id: newUser._id,
-        fullName,
-        email,
-        profilePic,
-        token,
+        data: {
+          _id: newUser._id,
+          fullName,
+          email,
+          profilePic,
+          token,
+        },
       });
     } else {
       res.status(400).json({
@@ -64,9 +67,108 @@ export const signup = async (req, res) => {
       .status(500);
   }
 };
-export const login = (req, res) => {
-  res.send("login route");
+export const login = async (req, res) => {
+  try {
+    const validateData = loginSchema.parse(req.body);
+    const { email, password } = validateData;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "Invalid Credentials",
+      });
+    }
+    const checkPassword = await bcrypt.compare(password, user.password);
+    if (!checkPassword) {
+      return res.json({
+        success: false,
+        message: "Invalid Credentials",
+      });
+    }
+    const token = generateToken(user._id, res);
+    res.status(200).json({
+      success: true,
+      message: "User logged in successfully",
+      token,
+      data: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        profilePic: user.profilePic,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: error.errors,
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
 export const logout = (req, res) => {
-  res.send("logout route");
+  try {
+    res.cookie("jwt", "", { maxAge: 0 });
+    res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  //in order to upload media we need a service. SO here we are using cloudinary
+  try {
+    const { profilePic } = req.body;
+    const userId = req.user._id;
+    if (!profilePic) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a profile picture",
+      });
+    }
+    const uploadResponse = await cloudinary.uploader
+      .upload(profilePic)
+      .catch((error) => {
+        console.log(error);
+      });
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { profilePic: uploadResponse.secure_url },
+      { new: true }
+    );
+    res.status(200).json({
+      success: true,
+      message: "Profile has been updated",
+      updatedUser,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const checkAuth = async (req, res) => {
+  try {
+    res.status(200).json({
+      status: true,
+      user: req.user,
+    });
+  } catch (error) {
+    console.log("Error in checkAuth controller");
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
