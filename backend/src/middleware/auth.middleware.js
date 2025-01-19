@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 export const protectRoute = async (req, res, next) => {
   try {
+    //check if user token is present
     const token = req.cookies.jwt;
     if (!token) {
       return res.status(401).json({
@@ -10,6 +11,7 @@ export const protectRoute = async (req, res, next) => {
         message: "Unauthorized - No Token Provided",
       });
     }
+    //verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded) {
       return res.status(401).json({
@@ -17,6 +19,7 @@ export const protectRoute = async (req, res, next) => {
         message: "Unauthorized - Invalid Token",
       });
     }
+    console.log(decoded);
     //we can get user id from decoded and by using select method we can remove password which is safe way and not expose password
     const user = await User.findOne({ _id: decoded.userId }).select(
       "-password"

@@ -6,11 +6,11 @@ import bcrypt from "bcryptjs";
 import z from "zod";
 export const signup = async (req, res) => {
   try {
-    //validate data
+    //validate data from client using zod
     const validateData = signupSchema.parse(req.body);
     const { fullName, email, password, profilePic } = validateData;
 
-    //create user
+    //check if user already exists
     const user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({
@@ -18,10 +18,13 @@ export const signup = async (req, res) => {
         message: "User with email already exists",
       });
     }
+
     //hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     console.log(hashedPassword);
+
+    //create new user
     const newUser = new User({
       fullName,
       email,
@@ -71,6 +74,7 @@ export const login = async (req, res) => {
   try {
     const validateData = loginSchema.parse(req.body);
     const { email, password } = validateData;
+    //check if user exists with email
     const user = await User.findOne({ email });
     if (!user) {
       return res.json({
@@ -78,6 +82,7 @@ export const login = async (req, res) => {
         message: "Invalid Credentials",
       });
     }
+    //check password
     const checkPassword = await bcrypt.compare(password, user.password);
     if (!checkPassword) {
       return res.json({
@@ -85,6 +90,8 @@ export const login = async (req, res) => {
         message: "Invalid Credentials",
       });
     }
+
+    //generate  token
     const token = generateToken(user._id, res);
     res.status(200).json({
       success: true,
@@ -144,7 +151,7 @@ export const updateProfile = async (req, res) => {
       { profilePic: uploadResponse.secure_url },
       { new: true }
     );
-    res.status(200).json({
+    res.status(201).json({
       success: true,
       message: "Profile has been updated",
       updatedUser,
