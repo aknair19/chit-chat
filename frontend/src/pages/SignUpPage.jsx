@@ -10,7 +10,10 @@ import {
   Lock,
   EyeIcon,
   EyeClosed,
+  Loader2,
 } from "lucide-react";
+import { signUpSchema } from "../schemas";
+import toast from "react-hot-toast";
 const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -19,10 +22,20 @@ const SignUpPage = () => {
     password: "",
   });
   const { signUp, isSignUp } = useAuthStore();
-  const validateForm = () => {};
+  const validateForm = () => {
+    const validatedData = signUpSchema.safeParse(formData);
+    if (!validatedData.success) {
+      console.log("Error in signUp", validatedData.error.issues[0].message);
+      toast.error(validatedData.error.issues[0].message);
+      return;
+    }
+    return validatedData;
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const res = validateForm();
+    if (res) signUp(res.data);
   };
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -104,11 +117,26 @@ const SignUpPage = () => {
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeIcon /> : <EyeClosed />}
                 </button>
               </div>
             </div>
+            <button
+              type="submit"
+              className="btn btn-primary w-full"
+              disabled={isSignUp}
+            >
+              {isSignUp ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </button>
           </form>
         </div>
       </div>
